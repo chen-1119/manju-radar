@@ -17,3 +17,7 @@
 - https://developer.qiniu.com/aitokenapi/13192/web-search-api
 - https://developer.qiniu.com/aitokenapi/12884/how-to-get-api-key
 - https://developer.qiniu.com/aitokenapi/13167/fusion-resource-package
+
+## 验证结果
+
+28 项自动测试通过，打包 EXE 的设置保存/清除、旧版 Brave 兼容、密钥不回传、跨来源请求保护和邀请入口已检查。用户随后提供七牛密钥并授权使用，已在本机保存并通过连接测试；“Python”查询合并后百度 59 条、夸克 134 条，无来源错误。资源数量依来源状态变化，奖励抵扣未查询或确认。密钥仅在本机配置中，源码和 ZIP 均不包含账号密钥。
