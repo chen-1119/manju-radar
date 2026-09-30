@@ -9,6 +9,8 @@ import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { cleanQuery, normalizeIndexResult, searchEngineLinks, searchLinks } from './search.js';
 import { searchAll } from './search-service.js';
+import { SearchApiError, testSearchProvider } from './search-api.js';
+import { SearchConfig, SearchConfigError } from './search-config.js';
 import { quarkShareInput } from './transfer.js';
 import { baiduShareInput } from './baidu.js';
 import { BaiduBrowser } from './baidu-browser.js';
@@ -19,6 +21,7 @@ const root = isSea() ? path.dirname(process.execPath) : path.dirname(fileURLToPa
 const publicDir = path.join(root, 'public');
 const dataDir = path.join(process.env.LOCALAPPDATA || root, 'ManjuRadar');
 const configPath = path.join(dataDir, 'config.local.json');
+const searchConfig = new SearchConfig(configPath);
 let port = Number(process.env.PORT || 4177);
 const runFile = promisify(execFile);
 const quarkDir = path.join(dataDir, 'quark');
@@ -35,11 +38,6 @@ const baiduPending = new Map();
 let loginState = 'idle';
 let loginProcess = null;
 const activeTransfers = new Set();
-let savedKey = '';
-
-try {
-  savedKey = JSON.parse(readFileSync(configPath, 'utf8')).braveApiKey || '';
-} catch { /* First run has no local configuration. */ }
 try {
   const entries = JSON.parse(readFileSync(baiduPendingPath, 'utf8'));
   for (const [key, entry] of Object.entries(entries)) {
@@ -151,7 +149,7 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
 
   if (url.pathname === '/api/status' && req.method === 'GET') {
-    return json(res, 200, { app: 'manju-radar', configured: Boolean(process.env.BRAVE_SEARCH_API_KEY || savedKey), indexed: true });
+    return json(res, 200, { app: 'manju-radar', ...searchConfig.status(), indexed: true });
   }
 
   if (url.pathname === '/api/quark/status' && req.method === 'GET') {
@@ -246,16 +244,19 @@ const server = http.createServer(async (req, res) => {
   if (url.pathname === '/api/config' && req.method === 'POST') {
     try {
       const body = await readJson(req);
-      const key = String(body.braveApiKey || '').trim();
-      if (key.length < 12 || key.length > 300 || /\s/.test(key)) {
-        return json(res, 400, { error: '请输入有效的 Brave Search API 密钥' });
-      }
-      await fs.mkdir(dataDir, { recursive: true });
-      await fs.writeFile(configPath, JSON.stringify({ braveApiKey: key }), { encoding: 'utf8', mode: 0o600 });
-      savedKey = key;
-      return json(res, 200, { configured: true });
+      return json(res, 200, await searchConfig.update(body));
     } catch (error) {
-      return json(res, 400, { error: error.message || '保存失败' });
+      return json(res, 400, { error: error instanceof SearchConfigError ? error.message : '搜索设置格式有误' });
+    }
+  }
+
+  if (url.pathname === '/api/search/test' && req.method === 'POST') {
+    try {
+      const body = await readJson(req);
+      if (!['qiniu', 'brave'].includes(body?.provider)) return json(res, 400, { error: '未知搜索 API' });
+      return json(res, 200, await testSearchProvider(body.provider, searchConfig.key(body.provider)));
+    } catch (error) {
+      return json(res, 400, { error: error instanceof SearchApiError ? error.message : '连接测试未完成，请稍后重试' });
     }
   }
 
@@ -269,8 +270,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, 400, { error: '搜索选项无效' });
     }
     const externalLinks = searchLinks(keyword, kind);
-    const apiKey = process.env.BRAVE_SEARCH_API_KEY || savedKey;
-    const data = await searchAll(keyword, kind, freshness, apiKey, { page });
+    const data = await searchAll(keyword, kind, freshness, searchConfig.key('brave'), { page, qiniuApiKey: searchConfig.key('qiniu') });
     return json(res, 200, { mode: 'integrated', externalLinks, engineLinks: searchEngineLinks(keyword, kind), ...data });
   }
 

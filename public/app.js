@@ -97,6 +97,12 @@ async function getStatus() {
     const response = await fetch('/api/status');
     const data = await response.json();
     connectionLabel.textContent = data.configured ? '聚合 + 网页搜索已就绪' : '双平台聚合搜索已就绪';
+    for (const [provider, name] of [['qiniu', '七牛搜索'], ['brave', 'Brave 搜索']]) {
+      const state = data.providers?.[provider];
+      $(`#${provider}-config-label`).textContent = state?.configured ? `已配置${name}${state.fromEnvironment ? '（环境变量）' : ''} · 可测试连接` : `尚未配置${name}`;
+      $(`#${provider}-test`).disabled = !state?.configured;
+      $(`#${provider}-clear`).disabled = !state?.locallyConfigured;
+    }
   } catch {
     connectionLabel.textContent = '服务连接失败';
   }
@@ -305,7 +311,7 @@ function renderResults(data) {
   }
 
   modeNote.hidden = false;
-  modeNote.textContent = '同时查询盘搜索与 PanSou 聚合，重复分享已合并，卡片底部显示来源。登录后默认保存到网盘根目录；搜索引擎补充入口会打开对应网页。分享有效性尚未验证。';
+  modeNote.textContent = `搜索来源：${(data.searchedSources || ['盘搜索索引', 'PanSou 聚合']).join('、')}。重复分享已合并，卡片底部显示来源。登录后默认保存到网盘根目录；搜索引擎补充入口会打开对应网页。分享有效性尚未验证。`;
   const time = new Date(data.searchedAt).toLocaleString('zh-CN', { hour12: false });
   status.textContent = `查询于 ${time}`;
   for (const platform of ['baidu', 'quark']) {
@@ -400,27 +406,40 @@ document.querySelectorAll('[data-example]').forEach((button) => {
   });
 });
 
-$('#settings-form').addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const key = $('#api-key').value.trim();
-  const message = $('#settings-status');
-  message.textContent = '正在保存…';
-  try {
-    const response = await fetch('/api/config', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ braveApiKey: key }),
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || '保存失败');
-    $('#api-key').value = '';
-    message.textContent = '已保存在本机。下次搜索将同时查询索引和公开网页。';
-    connectionLabel.textContent = '索引 + 网页搜索已就绪';
-    $('#settings-details').open = false;
-  } catch (error) {
-    message.textContent = error.message || '保存失败';
+function bindSearchSettings(provider, formId, inputId, statusId) {
+  const providerForm = $(formId);
+  const input = $(inputId);
+  const message = $(statusId);
+  const buttons = [...providerForm.querySelectorAll('button')];
+  let busy = false;
+  async function action(endpoint, body, success) {
+    if (busy) return;
+    busy = true;
+    buttons.forEach((button) => { button.disabled = true; });
+    message.textContent = endpoint.endsWith('/test') ? '正在测试连接…' : '正在保存设置…';
+    try {
+      const response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider, ...body }) });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || '操作未完成');
+      message.textContent = success;
+      if (endpoint === '/api/config') input.value = '';
+    } catch (error) { message.textContent = error.message || '操作未完成'; }
+    finally {
+      await getStatus();
+      providerForm.querySelector('button[type="submit"]').disabled = false;
+      busy = false;
+    }
   }
-});
+  providerForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    action('/api/config', { apiKey: input.value.trim() }, '已保存在本机。点击“测试连接”核对权限，下次搜索会自动合并该 API 的结果。');
+  });
+  $(`#${provider}-test`).addEventListener('click', () => action('/api/search/test', {}, '连接测试成功，已完成 1 次请求。可以开始关键词搜索。'));
+  $(`#${provider}-clear`).addEventListener('click', () => action('/api/config', { clear: true }, '已清除本机保存的密钥。环境变量配置需在系统中自行修改。'));
+}
+
+bindSearchSettings('qiniu', '#qiniu-settings-form', '#qiniu-api-key', '#qiniu-settings-status');
+bindSearchSettings('brave', '#settings-form', '#api-key', '#settings-status');
 
 getStatus();
 refreshBaiduStatus();

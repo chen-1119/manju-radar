@@ -1,4 +1,5 @@
-import { buildQuery, matchesKind, normalizeAggregateResult, normalizeIndexResult, normalizeResult, uniqueResults } from './search.js';
+import { matchesKind, normalizeAggregateResult, normalizeIndexResult, uniqueResults } from './search.js';
+import { searchProvider } from './search-api.js';
 
 async function indexedSearch(keyword, platform, kind, freshness, page, fetcher) {
   const url = new URL('https://www.pansousuo.com/api/search');
@@ -34,32 +35,8 @@ async function aggregateSearch(keyword, fetcher, endpoint) {
   return data.merged_by_type;
 }
 
-async function webSearch(keyword, platform, kind, freshness, apiKey, fetcher) {
-  const url = new URL('https://api.search.brave.com/res/v1/web/search');
-  url.searchParams.set('q', buildQuery(keyword, platform, kind));
-  url.searchParams.set('count', '12');
-  url.searchParams.set('country', 'CN');
-  url.searchParams.set('search_lang', 'zh');
-  url.searchParams.set('ui_lang', 'zh-CN');
-  url.searchParams.set('result_filter', 'web');
-  url.searchParams.set('text_decorations', 'false');
-  if (freshness !== 'all') url.searchParams.set('freshness', freshness);
-  const response = await fetcher(url, {
-    headers: { Accept: 'application/json', 'X-Subscription-Token': apiKey },
-    signal: AbortSignal.timeout(12000),
-  });
-  if (!response.ok) {
-    if (response.status === 401 || response.status === 403) throw new Error('搜索密钥无效或无权限');
-    if (response.status === 429) throw new Error('搜索额度或频率已达到上限');
-    throw new Error(`网页搜索返回 ${response.status}`);
-  }
-  const data = await response.json();
-  return (data.web?.results || []).map((raw) => normalizeResult(raw, platform))
-    .filter(Boolean).filter((result) => matchesKind(result, kind));
-}
-
 export async function searchAll(keyword, kind = 'all', freshness = 'all', apiKey = '', {
-  fetcher = fetch, page = 1, includePanSou = true, pansouUrl = 'https://so.252035.xyz',
+  fetcher = fetch, page = 1, includePanSou = true, pansouUrl = 'https://so.252035.xyz', qiniuApiKey = '',
 } = {}) {
   const results = {};
   const errors = {};
@@ -74,7 +51,8 @@ export async function searchAll(keyword, kind = 'all', freshness = 'all', apiKey
         .filter(Boolean).filter((result) => matchesKind(result, kind))
         .filter((result) => !cutoff || (result.publishedAt && Date.parse(result.publishedAt) >= Date.now() - cutoff)) };
     }) });
-    if (page === 1 && apiKey) sources.push({ name: '网页搜索', request: webSearch(keyword, platform, kind, freshness, apiKey, fetcher).then((items) => ({ items })) });
+    if (page === 1 && apiKey) sources.push({ name: 'Brave Search', request: searchProvider('brave', keyword, platform, kind, freshness, apiKey, fetcher).then((items) => ({ items })) });
+    if (page === 1 && qiniuApiKey) sources.push({ name: '七牛云百度搜索', request: searchProvider('qiniu', keyword, platform, kind, freshness, qiniuApiKey, fetcher).then((items) => ({ items })) });
     const settled = await Promise.allSettled(sources.map((source) => source.request));
     const found = [];
     const failures = [];
@@ -91,5 +69,6 @@ export async function searchAll(keyword, kind = 'all', freshness = 'all', apiKey
     if (!available) errors[platform] = failures.join('；');
     else if (failures.length) warnings[platform] = failures;
   }));
-  return { results, errors, warnings, pagination, searchedAt: new Date().toISOString() };
+  const searchedSources = ['盘搜索索引', ...(includePanSou ? ['PanSou 聚合'] : []), ...(apiKey ? ['Brave Search'] : []), ...(qiniuApiKey ? ['七牛云百度搜索'] : [])];
+  return { results, errors, warnings, pagination, searchedSources, searchedAt: new Date().toISOString() };
 }

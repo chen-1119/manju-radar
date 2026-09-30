@@ -1,0 +1,19 @@
+# 七牛云搜索接入
+
+用户选择七牛云，并指定 `https://s.qiniu.com/RbuYve` 为自己的邀请链接。
+
+## 接入方式
+
+直接使用七牛官方全网搜索 `POST https://api.qnaigc.com/v1/search/web`，以使用者自己的 AI API Key 认证。邀请链接只用于注册入口，界面注明作者邀请。避免额外调用大模型生成搜索答案，因为现有工具需要结构化网页和分享链接。保留 Brave 配置，同时合并索引、PanSou 与已配置的搜索 API。
+
+## 步骤与验证
+
+1. 新增七牛请求适配：映射网页标题、链接、摘要、日期，提取分享链接和提取码；双平台首次搜索各请求一次，加载更多不重复消耗 API。验证请求协议、来源去重、时间筛选、余额不足及部分来源故障。
+2. 设置支持七牛、Brave 各自保存/清除密钥及测试连接，保留旧版 Brave 配置。页面与状态接口只返回配置状态，不返回密钥。测试请求消耗一次 API 调用，界面说明。验证配置持久化、并发更新和密钥不回传。
+3. 增加邀请注册、密钥教程和接口文档入口。活动赠送的是模型 Token；搜索是否可抵扣未经证实，界面和 README 不承诺搜索免费。
+4. 运行自动测试、构建 Windows 包、验证包的设置接口与静态资源；更新 GitHub 源码和测试版发行包。没有用户 API Key，因此不宣称真实七牛账号调用成功，也不替用户创建、重置或复制密钥。
+
+官方文档：
+- https://developer.qiniu.com/aitokenapi/13192/web-search-api
+- https://developer.qiniu.com/aitokenapi/12884/how-to-get-api-key
+- https://developer.qiniu.com/aitokenapi/13167/fusion-resource-package

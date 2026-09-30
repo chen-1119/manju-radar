@@ -65,8 +65,8 @@ function safeHttpUrl(value) {
 
 function directShareUrl(text, platform) {
   const pattern = platform === 'baidu'
-    ? /https?:\/\/pan\.baidu\.com\/s\/[\w-]+/i
-    : /https?:\/\/pan\.quark\.cn\/s\/[\w-]+/i;
+    ? /https?:\/\/pan\.baidu\.com\/s\/[\w-]+(?:\?[^\s<>"'，。；]*)?/i
+    : /https?:\/\/pan\.quark\.cn\/s\/[\w-]+(?:\?[^\s<>"'，。；]*)?/i;
   return safeHttpUrl(text.match(pattern)?.[0]);
 }
 
@@ -75,7 +75,22 @@ export function normalizeResult(raw, platform) {
   if (!sourceUrl) return null;
   const title = cleanText(raw.title) || sourceUrl;
   const description = cleanText(raw.description);
-  const shareUrl = directShareUrl(`${sourceUrl} ${description}`, platform);
+  let shareUrl = directShareUrl(`${sourceUrl} ${description}`, platform);
+  const textCode = `${title} ${description}`.match(/(?:提取码|访问码|密码)\s*[:：]?\s*([A-Za-z0-9]{4})(?![A-Za-z0-9])/i)?.[1] || '';
+  let accessCode = '';
+  if (shareUrl) {
+    const parsed = platform === 'baidu' ? baiduShareInput(shareUrl, textCode) : null;
+    if (platform === 'baidu') {
+      shareUrl = parsed?.url || null;
+      accessCode = parsed?.code || '';
+    } else {
+      const share = new URL(shareUrl);
+      const code = share.searchParams.get('pwd') || textCode;
+      accessCode = /^[A-Za-z0-9]{1,16}$/.test(code) ? code : '';
+      shareUrl = `${share.origin}${share.pathname}`;
+    }
+  }
+  const date = new Date(raw.publishedAt || '');
   return {
     title,
     description,
@@ -84,7 +99,9 @@ export function normalizeResult(raw, platform) {
     direct: Boolean(shareUrl),
     platform,
     age: cleanText(raw.age),
-    sourceName: '公开网页',
+    publishedAt: Number.isNaN(date.getTime()) ? null : date.toISOString(),
+    sourceName: cleanText(raw.sourceName) || '公开网页',
+    accessCode,
   };
 }
 

@@ -154,13 +154,27 @@
       </section>
 
       <section class="settings-section" aria-labelledby="settings-title">
-        <div><p class="section-kicker">SETUP / 可选设置</p><h2 id="settings-title">扩展公开网页搜索</h2><p>默认同时查询盘搜索索引和 PanSou 聚合来源。填入 Brave Search API 密钥后，还会查询公开网页并合并结果。网页查询使用 API 额度，密钥仅保存在本机。</p></div>
+        <div><p class="section-kicker">SETUP / 可选设置</p><h2 id="settings-title">扩展公开网页搜索</h2><p>默认同时查询盘搜索索引和 PanSou 聚合来源。可以添加七牛云百度搜索或 Brave Search，自动合并网页结果。每个已配置 API 的双平台搜索使用 2 次请求，测试连接使用 1 次；加载更多索引不重复调用。密钥仅保存在本机。</p></div>
         <details id="settings-details">
           <summary>设置搜索密钥 <span aria-hidden="true">↗</span></summary>
-          <form id="settings-form">
+          <form id="qiniu-settings-form" class="provider-form">
+            <h3>七牛云 · 百度搜索</h3>
+            <p id="qiniu-config-label">尚未配置七牛搜索</p>
+            <label for="qiniu-api-key">七牛云 AI API Key</label>
+            <div class="settings-row"><input id="qiniu-api-key" name="qiniu-api-key" type="password" autocomplete="off" placeholder="粘贴自己的 AI API Key"><button type="submit">保存密钥</button></div>
+            <div class="provider-actions"><button id="qiniu-test" type="button" disabled>测试连接（1 次请求）</button><button id="qiniu-clear" type="button" disabled>清除本机密钥</button></div>
+            <p><a href="https://s.qiniu.com/RbuYve" target="_blank" rel="noopener noreferrer">通过作者邀请注册七牛云 ↗</a> · <a href="https://developer.qiniu.com/aitokenapi/12884/how-to-get-api-key" target="_blank" rel="noopener noreferrer">获取 AI 密钥 ↗</a> · <a href="https://developer.qiniu.com/aitokenapi/13192/web-search-api" target="_blank" rel="noopener noreferrer">搜索接口说明 ↗</a></p>
+            <p>邀请活动奖励为模型 Token，能否抵扣搜索费用请在七牛控制台核对资源包范围。</p>
+            <p id="qiniu-settings-status" role="status" aria-live="polite"></p>
+          </form>
+          <form id="settings-form" class="provider-form">
+            <h3>Brave Search</h3>
+            <p id="brave-config-label">尚未配置 Brave 搜索</p>
             <label for="api-key">Brave Search API 密钥</label>
             <div class="settings-row"><input id="api-key" name="api-key" type="password" autocomplete="off" placeholder="粘贴密钥"><button type="submit">保存密钥</button></div>
-            <p id="settings-status" role="status" aria-live="polite">获取密钥：<a href="https://brave.com/search/api/" target="_blank" rel="noopener noreferrer">Brave Search API ↗</a></p>
+            <div class="provider-actions"><button id="brave-test" type="button" disabled>测试连接（1 次请求）</button><button id="brave-clear" type="button" disabled>清除本机密钥</button></div>
+            <p>获取密钥：<a href="https://brave.com/search/api/" target="_blank" rel="noopener noreferrer">Brave Search API ↗</a></p>
+            <p id="settings-status" role="status" aria-live="polite"></p>
           </form>
         </details>
       </section>
