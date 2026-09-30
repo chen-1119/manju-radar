@@ -8,6 +8,8 @@ let quarkLoggedIn = false;
 let baiduLoggedIn = false;
 let quarkPoll = null;
 let qrShown = false;
+let baiduPoll = null;
+let currentSearch = null;
 
 async function refreshQuarkStatus() {
   try {
@@ -16,7 +18,7 @@ async function refreshQuarkStatus() {
     quarkLoggedIn = data.loggedIn;
     const active = ['waiting', 'qr'].includes(data.loginState);
     $('#quark-auth-label').textContent = !data.installed ? '转存组件未安装' : data.loggedIn ? '已登录夸克网盘' : active ? '等待扫码登录' : '尚未登录夸克网盘';
-    $('.drive-state-dot').classList.toggle('online', data.loggedIn);
+    $('#quark-login-section .drive-state-dot').classList.toggle('online', data.loggedIn);
     $('#quark-login-button').disabled = active;
     $('#quark-login-button').firstChild.textContent = data.loggedIn ? '重新扫码登录 ' : '扫码登录夸克网盘 ';
     if (data.loginState === 'qr' && !qrShown) {
@@ -62,15 +64,18 @@ async function refreshBaiduStatus() {
     const response = await fetch('/api/baidu/status');
     const data = await response.json();
     baiduLoggedIn = data.loggedIn;
-    $('#baidu-auth-label').textContent = !data.installed ? '转存组件未安装' : data.loggedIn ? '已授权百度网盘' : '尚未授权百度网盘';
+    const active = data.loginState === 'waiting';
+    $('#baidu-auth-label').textContent = !data.installed ? '需要 Edge 或 Chrome 浏览器' : data.loggedIn ? '已登录百度网盘' : active ? '等待在百度窗口完成登录' : '尚未登录百度网盘';
     $('#baidu-state-dot').classList.toggle('online', data.loggedIn);
-    $('#baidu-auth-button').disabled = !data.installed;
-    $('#baidu-auth-button').firstChild.textContent = data.loggedIn ? '重新获取百度授权链接 ' : '同意并获取百度授权链接 ';
+    $('#baidu-auth-button').disabled = !data.installed || active;
+    $('#baidu-auth-button').firstChild.textContent = data.loggedIn ? '重新打开百度窗口 ' : active ? '等待完成百度登录 ' : '打开百度登录窗口 ';
     $('#baidu-auth-message').textContent = !data.installed
-      ? '请先双击“安装百度转存组件.cmd”。'
-      : data.loggedIn ? '现在可以在百度结果中点击“一键转存”。' : '先获取授权链接，登录后把授权码填回本机页面。';
+      ? '请先安装 Edge 或 Chrome，再重新启动工具。'
+      : data.loggedIn ? '现在可以一键保存到百度网盘根目录。' : active ? '请在打开的百度官方页面扫码或登录，完成后会自动更新状态。' : '点击打开百度登录窗口，完成登录即可转存到根目录。';
+    if (baiduPoll) { clearTimeout(baiduPoll); baiduPoll = null; }
+    if (active) baiduPoll = setTimeout(refreshBaiduStatus, 2500);
     document.querySelectorAll('.baidu-transfer-button:not([data-busy])').forEach((button) => {
-      button.textContent = baiduLoggedIn ? '一键转存' : '授权后转存';
+      button.textContent = baiduLoggedIn ? '一键转存' : '登录后转存';
     });
   } catch { $('#baidu-auth-label').textContent = '授权状态暂时无法读取'; }
 }
@@ -78,44 +83,20 @@ async function refreshBaiduStatus() {
 $('#baidu-auth-button').addEventListener('click', async () => {
   const button = $('#baidu-auth-button');
   button.disabled = true;
-  $('#baidu-auth-message').textContent = '正在取得百度官方授权链接…';
+  $('#baidu-auth-message').textContent = '正在打开百度登录窗口…';
   try {
-    const response = await fetch('/api/baidu/auth-url', { method: 'POST' });
+    const response = await fetch('/api/baidu/browser-login', { method: 'POST' });
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error || '无法取得授权链接');
-    $('#baidu-auth-link').href = data.authUrl;
-    $('#baidu-auth-link').hidden = false;
-    $('#baidu-code-form').hidden = false;
-    $('#baidu-auth-message').textContent = '打开官方页面完成登录，再把授权码粘贴到下方。';
-  } catch (error) { $('#baidu-auth-message').textContent = error.message || '无法取得授权链接'; }
-  finally { button.disabled = false; }
-});
-
-$('#baidu-code-form').addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const button = $('#baidu-code-form button');
-  button.disabled = true;
-  $('#baidu-auth-message').textContent = '正在验证授权码…';
-  try {
-    const response = await fetch('/api/baidu/login', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: $('#baidu-code').value.trim() }),
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || '授权未完成');
-    $('#baidu-code').value = '';
-    $('#baidu-code-form').hidden = true;
-    $('#baidu-auth-link').hidden = true;
+    if (!response.ok) throw new Error(data.error || '无法打开百度登录窗口');
     await refreshBaiduStatus();
-  } catch (error) { $('#baidu-auth-message').textContent = error.message || '授权未完成'; }
-  finally { button.disabled = false; }
+  } catch (error) { button.disabled = false; $('#baidu-auth-message').textContent = error.message || '无法打开百度登录窗口'; }
 });
 
 async function getStatus() {
   try {
     const response = await fetch('/api/status');
     const data = await response.json();
-    connectionLabel.textContent = data.configured ? '索引 + 网页搜索已就绪' : '双平台索引已就绪';
+    connectionLabel.textContent = data.configured ? '聚合 + 网页搜索已就绪' : '双平台聚合搜索已就绪';
   } catch {
     connectionLabel.textContent = '服务连接失败';
   }
@@ -172,7 +153,8 @@ function createResultCard(result) {
   const bottom = document.createElement('div');
   bottom.className = 'result-bottom';
   const domain = document.createElement('span');
-  domain.textContent = result.sourceName || new URL(result.sourceUrl).hostname;
+  domain.textContent = result.sources?.join(' · ') || result.sourceName || new URL(result.sourceUrl).hostname;
+  domain.title = domain.textContent;
   const actions = document.createElement('div');
   actions.className = 'result-actions';
   if (result.direct && ['quark', 'baidu'].includes(result.platform)) {
@@ -180,7 +162,7 @@ function createResultCard(result) {
     const transfer = document.createElement('button');
     transfer.type = 'button';
     transfer.className = isBaidu ? 'baidu-transfer-button' : 'quark-transfer-button';
-    transfer.textContent = isBaidu ? (baiduLoggedIn ? '一键转存' : '授权后转存') : (quarkLoggedIn ? '一键转存' : '登录后转存');
+    transfer.textContent = (isBaidu ? baiduLoggedIn : quarkLoggedIn) ? '一键转存' : '登录后转存';
     transfer.addEventListener('click', async () => {
       if (!(isBaidu ? baiduLoggedIn : quarkLoggedIn)) {
         $(isBaidu ? '#baidu-login-section' : '#quark-login-section').scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -196,7 +178,7 @@ function createResultCard(result) {
         message.setAttribute('role', 'status');
         card.append(message);
       }
-      message.textContent = isBaidu ? '正在提交到百度网盘，请稍候…' : '正在保存到夸克网盘 /AI漫剧，请稍候…';
+      message.textContent = `正在保存到${isBaidu ? '百度' : '夸克'}网盘根目录，请稍候…`;
       try {
         const response = await fetch(isBaidu ? '/api/baidu/transfer' : '/api/quark/transfer', {
           method: 'POST',
@@ -207,15 +189,16 @@ function createResultCard(result) {
         if (!response.ok) throw new Error(data.error || '转存失败');
         if (isBaidu && data.status === 'submitted') {
           transfer.textContent = '任务已提交';
-          message.textContent = `转存任务已提交${data.taskId ? `（任务号 ${data.taskId}）` : ''}。请稍后在百度网盘“我的应用数据 / bdpan / AI漫剧”核对，不要重复提交。`;
+          message.textContent = `转存任务已提交${data.taskId ? `（任务号 ${data.taskId}）` : ''}。请稍后在百度网盘根目录核对，不要重复提交。`;
         } else if (isBaidu && data.status === 'saved') {
           transfer.textContent = '已转存';
           const paths = data.files.slice(0, 5).map((file) => file.path || file.name).join('；');
           message.textContent = `已保存到百度网盘：${paths}${data.files.length > 5 ? `；等 ${data.files.length} 项` : ''}`;
         } else {
           transfer.textContent = '已转存';
-          message.textContent = '已保存到夸克网盘 /AI漫剧。';
+          message.textContent = '已保存到夸克网盘根目录。';
         }
+        result.transferStatus = { label: transfer.textContent, text: message.textContent };
       } catch (error) {
         message.textContent = error.message || '转存失败';
         transfer.disabled = false;
@@ -223,6 +206,15 @@ function createResultCard(result) {
         transfer.textContent = '重试转存';
       }
     });
+    if (result.transferStatus) {
+      transfer.disabled = true;
+      transfer.dataset.busy = 'complete';
+      transfer.textContent = result.transferStatus.label;
+      const saved = document.createElement('p');
+      saved.className = 'transfer-status';
+      saved.textContent = result.transferStatus.text;
+      card.append(saved);
+    }
     actions.append(transfer);
   }
   const source = document.createElement('a');
@@ -275,18 +267,33 @@ async function loadHot() {
 
 $('#hot-refresh').addEventListener('click', loadHot);
 
-function setExternalLinks(links) {
+function setExternalLinks(links, engineLinks) {
   for (const platform of ['baidu', 'quark']) {
     const anchor = $(`#${platform}-external`);
     if (links?.[platform]) {
       anchor.href = links[platform];
       anchor.hidden = false;
     } else anchor.hidden = true;
+    const holder = $(`#${platform}-engines`);
+    holder.replaceChildren();
+    holder.hidden = !engineLinks?.[platform];
+    if (engineLinks?.[platform]) {
+      const label = document.createElement('span');
+      label.textContent = '搜索引擎补充';
+      holder.append(label);
+      for (const [engine, name] of [['baidu', '百度'], ['bing', '必应'], ['google', 'Google']]) {
+        const link = document.createElement('a');
+        link.href = engineLinks[platform][engine];
+        link.textContent = `${name} ↗`;
+        link.target = '_blank'; link.rel = 'noopener noreferrer';
+        holder.append(link);
+      }
+    }
   }
 }
 
 function renderResults(data) {
-  setExternalLinks(data.externalLinks);
+  setExternalLinks(data.externalLinks, data.engineLinks);
   if (data.mode === 'external') {
     modeNote.hidden = false;
     modeNote.textContent = '当前使用免配置模式。点击每栏的“网页搜索”可查看实时搜索结果；设置密钥后，结果会直接显示在这里。';
@@ -298,7 +305,7 @@ function renderResults(data) {
   }
 
   modeNote.hidden = false;
-  modeNote.textContent = '百度授权、夸克扫码登录后，两个平台的直达分享都可一键转存。公开索引可能延迟，分享链接有效性尚未验证。';
+  modeNote.textContent = '同时查询盘搜索与 PanSou 聚合，重复分享已合并，卡片底部显示来源。登录后默认保存到网盘根目录；搜索引擎补充入口会打开对应网页。分享有效性尚未验证。';
   const time = new Date(data.searchedAt).toLocaleString('zh-CN', { hour12: false });
   status.textContent = `查询于 ${time}`;
   for (const platform of ['baidu', 'quark']) {
@@ -310,10 +317,18 @@ function renderResults(data) {
     $(`#${platform}-count`).textContent = String(results.length);
     if (!results.length) {
       showEmpty(platform, '没有找到匹配结果', '试试缩短关键词、放宽时间范围，或打开网页搜索。');
-      continue;
+    } else {
+      $(`#${platform}-results`).replaceChildren(...results.map(createResultCard));
     }
-    $(`#${platform}-results`).replaceChildren(...results.map(createResultCard));
+    if (data.warnings?.[platform]?.length) {
+      const warning = document.createElement('p');
+      warning.className = 'source-warning';
+      warning.setAttribute('role', 'status');
+      warning.textContent = `部分来源暂时不可用，已显示可用来源的结果。${data.warnings[platform].join('；')}`;
+      $(`#${platform}-results`).prepend(warning);
+    }
   }
+  $('#load-more').hidden = !Object.values(data.pagination || {}).some((page) => page.hasMore);
 }
 
 form.addEventListener('submit', async (event) => {
@@ -323,6 +338,8 @@ form.addEventListener('submit', async (event) => {
   const kind = form.elements.kind.value;
   const freshness = $('#freshness').value;
   const params = new URLSearchParams({ q: keyword, kind, freshness });
+  currentSearch = null;
+  $('#load-more').hidden = true;
   searchButton.disabled = true;
   searchButton.querySelector('span').textContent = '搜索中…';
   status.textContent = '正在查询公开网页索引…';
@@ -331,6 +348,7 @@ form.addEventListener('submit', async (event) => {
     const response = await fetch(`/api/search?${params}`);
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || '搜索失败');
+    currentSearch = { params, page: 1, data };
     renderResults(data);
     $('.results-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (error) {
@@ -341,10 +359,43 @@ form.addEventListener('submit', async (event) => {
   }
 });
 
+$('#load-more').addEventListener('click', async () => {
+  if (!currentSearch) return;
+  const active = currentSearch;
+  const button = $('#load-more');
+  const params = new URLSearchParams(active.params);
+  params.set('page', String(active.page + 1));
+  button.disabled = true;
+  button.textContent = '正在加载更多…';
+  try {
+    const response = await fetch(`/api/search?${params}`);
+    const data = await response.json();
+    if (currentSearch !== active) return;
+    if (!response.ok || Object.keys(data.errors || {}).length) throw new Error('更多结果暂时无法加载，请稍后重试。');
+    for (const platform of ['baidu', 'quark']) {
+      const found = new Map();
+      for (const result of [...(active.data.results[platform] || []), ...(data.results[platform] || [])]) {
+        const url = new URL(result.shareUrl || result.sourceUrl);
+        const key = result.shareUrl ? `${url.origin}${url.pathname.replace(/\/$/, '')}` : url.href;
+        const previous = found.get(key);
+        if (previous) {
+          previous.accessCode ||= result.accessCode;
+          previous.sources = [...new Set([...(previous.sources || [previous.sourceName]), ...(result.sources || [result.sourceName])].filter(Boolean))];
+        } else found.set(key, result);
+      }
+      data.results[platform] = [...found.values()];
+    }
+    data.warnings = active.data.warnings;
+    active.page += 1; active.data = data;
+    renderResults(data);
+  } catch (error) { if (currentSearch === active) status.textContent = error.message; }
+  finally { button.disabled = false; button.textContent = '加载更多索引结果'; }
+});
+
 document.querySelectorAll('[data-example]').forEach((button) => {
   button.addEventListener('click', () => {
     $('#keyword').value = button.dataset.example;
-    if (button.dataset.kind) form.elements.kind.value = button.dataset.kind;
+    form.elements.kind.value = button.dataset.kind || 'all';
     $('#keyword').focus();
   });
 });
@@ -363,7 +414,7 @@ $('#settings-form').addEventListener('submit', async (event) => {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || '保存失败');
     $('#api-key').value = '';
-    message.textContent = '已保存在本机。索引没有结果时会补充公开网页搜索。';
+    message.textContent = '已保存在本机。下次搜索将同时查询索引和公开网页。';
     connectionLabel.textContent = '索引 + 网页搜索已就绪';
     $('#settings-details').open = false;
   } catch (error) {

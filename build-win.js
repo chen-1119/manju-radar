@@ -47,9 +47,12 @@ for (const file of ['quarkpan.exe', 'quark-login.exe']) {
   await fs.copyFile(path.join(buildDir, 'quark-components', file), path.join(outputDir, 'components', file));
 }
 await fs.mkdir(path.join(outputDir, 'licenses'), { recursive: true });
+await fs.cp(path.join(root, 'licenses'), path.join(outputDir, 'licenses'), { recursive: true, force: true });
 await fs.copyFile(path.join(root, '.venv312', 'Lib', 'site-packages', 'quarkpan-1.0.5.dist-info', 'licenses', 'LICENSE'),
   path.join(outputDir, 'licenses', 'QuarkPan-MIT.txt'));
-for (const file of ['README.md', '安装百度转存组件.cmd', '安装百度转存组件.ps1']) {
+await fs.mkdir(path.join(outputDir, 'node_modules'), { recursive: true });
+await fs.cp(path.join(root, 'node_modules', 'playwright-core'), path.join(outputDir, 'node_modules', 'playwright-core'), { recursive: true });
+for (const file of ['README.md']) {
   await fs.copyFile(path.join(root, file), path.join(outputDir, file));
 }
 console.log(`发行目录：${outputDir}`);

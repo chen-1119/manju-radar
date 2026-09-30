@@ -1,3 +1,5 @@
+import { baiduShareInput } from './baidu.js';
+
 export const PLATFORMS = {
   baidu: { name: '百度网盘', hint: '百度网盘 分享' },
   quark: { name: '夸克网盘', hint: '夸克网盘 分享' },
@@ -5,26 +7,37 @@ export const PLATFORMS = {
 
 const KIND_HINTS = {
   works: 'AI漫剧',
-  making: 'AI漫剧 制作 教程 素材',
-  all: 'AI漫剧',
+  making: '教程 素材',
+  all: '',
 };
 
 export function cleanQuery(value) {
   return String(value ?? '').trim().replace(/\s+/g, ' ').slice(0, 60);
 }
 
-export function buildQuery(keyword, platform, kind = 'works') {
+export function buildQuery(keyword, platform, kind = 'all') {
   const topic = cleanQuery(keyword);
   if (!topic) throw new Error('请输入搜索关键词');
   if (!PLATFORMS[platform]) throw new Error('未知网盘');
-  if (!KIND_HINTS[kind]) throw new Error('未知资源类型');
-  return `${topic} ${KIND_HINTS[kind]} ${PLATFORMS[platform].hint}`;
+  if (!Object.hasOwn(KIND_HINTS, kind)) throw new Error('未知资源类型');
+  return [topic, KIND_HINTS[kind], PLATFORMS[platform].hint].filter(Boolean).join(' ');
 }
 
-export function searchLinks(keyword, kind = 'works') {
+export function searchLinks(keyword, kind = 'all') {
   return Object.fromEntries(Object.keys(PLATFORMS).map((platform) => {
     const query = buildQuery(keyword, platform, kind);
     return [platform, `https://www.baidu.com/s?wd=${encodeURIComponent(query)}`];
+  }));
+}
+
+export function searchEngineLinks(keyword, kind = 'all') {
+  return Object.fromEntries(Object.keys(PLATFORMS).map((platform) => {
+    const query = buildQuery(keyword, platform, kind);
+    return [platform, {
+      baidu: `https://www.baidu.com/s?wd=${encodeURIComponent(query)}`,
+      bing: `https://www.bing.com/search?q=${encodeURIComponent(query)}`,
+      google: `https://www.google.com/search?q=${encodeURIComponent(query)}`,
+    }];
   }));
 }
 
@@ -77,11 +90,16 @@ export function normalizeResult(raw, platform) {
 
 export function normalizeIndexResult(raw, platform) {
   if (raw?.pan !== platform) return null;
-  const shareUrl = safeHttpUrl(raw.share_url);
+  let shareUrl = safeHttpUrl(raw.share_url);
   if (!shareUrl) return null;
   const url = new URL(shareUrl);
   const hostname = platform === 'baidu' ? 'pan.baidu.com' : 'pan.quark.cn';
-  if (url.hostname !== hostname || !url.pathname.startsWith('/s/')) return null;
+  if (url.hostname !== hostname) return null;
+  const baiduShare = platform === 'baidu' ? baiduShareInput(shareUrl, cleanText(raw.access_code)) : null;
+  if (platform === 'baidu') {
+    if (!baiduShare) return null;
+    shareUrl = baiduShare.url;
+  } else if (!/^\/s\/[A-Za-z0-9_-]+\/?$/.test(url.pathname)) return null;
   const date = new Date(raw.published_at || raw.created_at || '');
   const age = Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString('zh-CN');
   return {
@@ -95,8 +113,17 @@ export function normalizeIndexResult(raw, platform) {
     publishedAt: age ? date.toISOString() : null,
     heat: Math.max(0, Number(raw.heat) || 0),
     sourceName: '盘搜索公开索引',
-    accessCode: cleanText(raw.access_code),
+    accessCode: baiduShare?.code || cleanText(raw.access_code),
   };
+}
+
+export function normalizeAggregateResult(raw, platform) {
+  const result = normalizeIndexResult({ pan: platform, title: raw?.note,
+    description: raw?.note, share_url: raw?.url, access_code: raw?.password,
+    published_at: raw?.datetime }, platform);
+  if (!result) return null;
+  const source = cleanText(raw.source).replace(/^plugin:/, '').replace(/^tg:/, '频道 ');
+  return { ...result, sourceName: source ? `PanSou · ${source}` : 'PanSou 聚合' };
 }
 
 const makingWords = /教程|素材|教学|课程|工具|提示词|工作流|创作|制作|手册|训练营|进阶课|大师课|变现课/;
@@ -108,11 +135,18 @@ export function matchesKind(result, kind) {
 }
 
 export function uniqueResults(results) {
-  const seen = new Set();
-  return results.filter((result) => {
-    const key = result.shareUrl || result.sourceUrl;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
+  const seen = new Map();
+  for (const result of results) {
+    let key = result.shareUrl || result.sourceUrl;
+    if (result.shareUrl) {
+      const url = new URL(result.shareUrl);
+      key = `${url.origin}${url.pathname.replace(/\/$/, '')}`;
+    }
+    const previous = seen.get(key);
+    if (previous) {
+      previous.accessCode ||= result.accessCode;
+      previous.sources = [...new Set([...previous.sources, ...(result.sources || [result.sourceName]).filter(Boolean)])];
+    } else seen.set(key, { ...result, sources: (result.sources || [result.sourceName]).filter(Boolean) });
+  }
+  return [...seen.values()];
 }

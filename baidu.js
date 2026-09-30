@@ -3,10 +3,11 @@ export function baiduShareInput(value, accessCode = '') {
   try { url = new URL(value); } catch { return null; }
   if (!['https:', 'http:'].includes(url.protocol) || url.hostname !== 'pan.baidu.com' || url.port || url.username || url.password) return null;
   const match = /^\/s\/([A-Za-z0-9_-]+)\/?$/.exec(url.pathname);
-  if (!match) return null;
+  const oldSurl = url.pathname === '/share/init' ? url.searchParams.get('surl') : '';
+  if (!match && (!oldSurl || !/^[A-Za-z0-9_-]+$/.test(oldSurl))) return null;
   const code = String(accessCode || url.searchParams.get('pwd') || '').trim();
   if (code && !/^[A-Za-z0-9]{4}$/.test(code)) return null;
-  return { url: `https://pan.baidu.com/s/${match[1]}`, code };
+  return { url: `https://pan.baidu.com/s/${match ? match[1] : `1${oldSurl}`}`, code };
 }
 
 export function baiduTransferResult(data) {

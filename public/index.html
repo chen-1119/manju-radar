@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#f4f2ea">
-  <title>漫剧雷达 · AI 漫剧资源搜索</title>
+  <title>漫剧雷达 · 百度与夸克资源搜索</title>
   <link rel="stylesheet" href="/style.css">
   <script src="/app.js" defer></script>
 </head>
@@ -25,9 +25,9 @@
     <main>
       <section class="hero" aria-labelledby="page-title">
         <div class="hero-copy">
-          <p class="eyebrow"><span class="eyebrow-line"></span> AI COMIC RESOURCE FINDER / 001</p>
-          <h1 id="page-title">想找的漫剧，<br><em>搜一搜就知道。</em></h1>
-          <p class="hero-description">先看最近收录的热门漫剧，再搜索想找的作品。同时查找百度网盘与夸克网盘的公开分享线索。</p>
+          <p class="eyebrow"><span class="eyebrow-line"></span> RESOURCE FINDER / BAIDU × QUARK</p>
+          <h1 id="page-title">想找的资源，<br><em>搜一搜就知道。</em></h1>
+          <p class="hero-description">输入任意关键词，同时查找百度网盘与夸克网盘的公开分享。作品剧集、课程教程、电子书和软件资料都可以搜。</p>
         </div>
         <div class="hero-art" aria-hidden="true">
           <div class="orbit orbit-one"></div>
@@ -58,7 +58,7 @@
           <div class="search-row">
             <div class="search-input-wrap">
               <span class="search-icon" aria-hidden="true"></span>
-              <input id="keyword" name="keyword" type="search" maxlength="60" autocomplete="off" placeholder="输入漫剧名称、题材或制作资料关键词" required>
+              <input id="keyword" name="keyword" type="search" maxlength="60" autocomplete="off" placeholder="输入任意关键词，例如：摄影教程、Python、电子书" required>
               <kbd>↵</kbd>
             </div>
             <button class="search-button" type="submit"><span>开始搜索</span><span aria-hidden="true">↗</span></button>
@@ -66,9 +66,9 @@
           <div class="filters">
             <div class="filter-group" aria-label="资源类型">
               <span class="filter-title">查找</span>
-              <label class="filter-chip"><input type="radio" name="kind" value="works" checked><span>作品剧集</span></label>
+              <label class="filter-chip"><input type="radio" name="kind" value="all" checked><span>不限内容</span></label>
+              <label class="filter-chip"><input type="radio" name="kind" value="works"><span>漫剧作品</span></label>
               <label class="filter-chip"><input type="radio" name="kind" value="making"><span>教程素材</span></label>
-              <label class="filter-chip"><input type="radio" name="kind" value="all"><span>全部</span></label>
             </div>
             <label class="freshness-label" for="freshness">时间范围
               <select id="freshness" name="freshness">
@@ -82,28 +82,24 @@
         </form>
         <div class="quick-search">
           <span>试试搜索</span>
-          <button type="button" data-example="AI漫剧">AI漫剧</button>
-          <button type="button" data-example="永夜之王">永夜之王</button>
-          <button type="button" data-example="AI漫剧" data-kind="making">制作教程</button>
+          <button type="button" data-example="AI漫剧" data-kind="works">AI漫剧</button>
+          <button type="button" data-example="摄影教程">摄影教程</button>
+          <button type="button" data-example="Python">Python</button>
+          <button type="button" data-example="电子书">电子书</button>
         </div>
       </section>
 
       <section id="baidu-login-section" class="drive-section baidu-drive-section" aria-labelledby="baidu-drive-title">
         <div class="drive-copy">
           <p class="section-kicker">SAVE / 百度网盘</p>
-          <h2 id="baidu-drive-title">授权后，一键转存百度分享</h2>
-          <p>点击获取百度官方授权链接，在打开的页面登录自己的账号，再把页面显示的授权码填回这里。百度分享将保存到“我的应用数据 / bdpan / AI漫剧”。</p>
-          <p class="drive-privacy">授权由百度官方工具完成，不在这里输入网盘密码。请只在自己的电脑授权并妥善保管授权码；点击获取链接即接受百度工具的安全提示。百度工具只能写入其应用数据目录。</p>
+          <h2 id="baidu-drive-title">登录后，保存到网盘根目录</h2>
+          <p>打开工具专用的百度登录窗口，在百度官方页面扫码或登录自己的账号。完成后回到这里，点击资源的“一键转存”，默认保存到网盘根目录。</p>
+          <p class="drive-privacy">需要本机已有 Edge 或 Chrome。登录状态保存在工具专用的本地浏览器目录；网页转存依赖百度非公开接口，平台更新或验证码可能影响使用。</p>
         </div>
         <div class="drive-action">
           <div class="drive-state"><span id="baidu-state-dot" class="drive-state-dot"></span><strong id="baidu-auth-label">检查百度登录状态…</strong></div>
-          <button id="baidu-auth-button" class="drive-primary-button" type="button">同意并获取百度授权链接 <span aria-hidden="true">↗</span></button>
-          <a id="baidu-auth-link" class="baidu-auth-link" target="_blank" rel="noopener noreferrer" hidden>打开百度官方授权页面 ↗</a>
-          <form id="baidu-code-form" class="baidu-code-form" hidden>
-            <label for="baidu-code">授权页面显示的授权码</label>
-            <div><input id="baidu-code" type="text" autocomplete="off" maxlength="512" placeholder="粘贴授权码" required><button type="submit">完成授权</button></div>
-          </form>
-          <p id="baidu-auth-message" role="status" aria-live="polite">首次使用请先安装百度转存组件。</p>
+          <button id="baidu-auth-button" class="drive-primary-button" type="button">打开百度登录窗口 <span aria-hidden="true">↗</span></button>
+          <p id="baidu-auth-message" role="status" aria-live="polite">只在百度官方页面输入登录信息。</p>
         </div>
       </section>
 
@@ -111,7 +107,7 @@
         <div class="drive-copy">
           <p class="section-kicker">SAVE / 夸克网盘</p>
           <h2 id="drive-title">扫码后，一键转存</h2>
-          <p>用夸克 App 扫码登录本机工具。搜索结果中的夸克分享可直接保存到您网盘的“AI漫剧”文件夹。</p>
+          <p>用夸克 App 扫码登录本机工具。搜索结果中的夸克分享默认保存到您的网盘根目录。</p>
           <p class="drive-privacy">登录凭据保存在这台电脑的本地目录。发行包内含第三方 QuarkPan 组件，依赖夸克的非公开接口，平台更新后可能失效。</p>
         </div>
         <div class="drive-action">
@@ -141,6 +137,7 @@
               <div><p>BAIDU NETDISK</p><h3 id="baidu-title">百度网盘 <span id="baidu-count" class="result-count">0</span></h3></div>
               <a id="baidu-external" class="external-search" href="#" target="_blank" rel="noopener noreferrer" hidden>网页搜索 ↗</a>
             </div>
+            <div id="baidu-engines" class="engine-links" hidden></div>
             <div id="baidu-results" class="result-list"><div class="empty-state"><span class="empty-symbol">⌕</span><strong>等待搜索</strong><p>百度网盘的公开分享线索会显示在这里。</p></div></div>
           </section>
           <section class="platform-column" aria-labelledby="quark-title">
@@ -149,13 +146,15 @@
               <div><p>QUARK DRIVE</p><h3 id="quark-title">夸克网盘 <span id="quark-count" class="result-count">0</span></h3></div>
               <a id="quark-external" class="external-search" href="#" target="_blank" rel="noopener noreferrer" hidden>网页搜索 ↗</a>
             </div>
+            <div id="quark-engines" class="engine-links" hidden></div>
             <div id="quark-results" class="result-list"><div class="empty-state"><span class="empty-symbol">⌕</span><strong>等待搜索</strong><p>夸克网盘的公开分享线索会显示在这里。</p></div></div>
           </section>
         </div>
+        <button id="load-more" class="load-more" type="button" hidden>加载更多索引结果</button>
       </section>
 
       <section class="settings-section" aria-labelledby="settings-title">
-        <div><p class="section-kicker">SETUP / 可选设置</p><h2 id="settings-title">扩展公开网页搜索</h2><p>默认显示公开网盘索引结果。填入 Brave Search API 密钥后，索引没有结果时会补充查找公开网页。密钥仅保存在本机。</p></div>
+        <div><p class="section-kicker">SETUP / 可选设置</p><h2 id="settings-title">扩展公开网页搜索</h2><p>默认同时查询盘搜索索引和 PanSou 聚合来源。填入 Brave Search API 密钥后，还会查询公开网页并合并结果。网页查询使用 API 额度，密钥仅保存在本机。</p></div>
         <details id="settings-details">
           <summary>设置搜索密钥 <span aria-hidden="true">↗</span></summary>
           <form id="settings-form">
