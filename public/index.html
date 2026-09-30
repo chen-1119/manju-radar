@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f4f2ea">
+  <title>漫剧雷达 · AI 漫剧资源搜索</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand" href="/" aria-label="漫剧雷达首页">
+        <span class="brand-mark" aria-hidden="true"><span></span></span>
+        <span>漫剧<span class="brand-light">雷达</span></span>
+      </a>
+      <div class="topbar-right">
+        <span class="topbar-label">BAIDU × QUARK</span>
+        <span class="live-dot" aria-hidden="true"></span>
+        <span id="connection-label">检查搜索方式中</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero" aria-labelledby="page-title">
+        <div class="hero-copy">
+          <p class="eyebrow"><span class="eyebrow-line"></span> AI COMIC RESOURCE FINDER / 001</p>
+          <h1 id="page-title">想找的漫剧，<br><em>搜一搜就知道。</em></h1>
+          <p class="hero-description">先看最近收录的热门漫剧，再搜索想找的作品。同时查找百度网盘与夸克网盘的公开分享线索。</p>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+          <div class="orbit orbit-one"></div>
+          <div class="orbit orbit-two"></div>
+          <div class="radar-core"><span></span></div>
+          <div class="radar-sweep"></div>
+          <span class="art-coordinate coordinate-one">31° 15′ N</span>
+          <span class="art-coordinate coordinate-two">SEARCH / LIVE</span>
+        </div>
+      </section>
+
+      <section class="hot-section" aria-labelledby="hot-title">
+        <div class="section-heading hot-heading">
+          <div>
+            <p class="section-kicker">TRENDING / 最近收录</p>
+            <h2 id="hot-title">近期热门内容</h2>
+            <p class="hot-intro">最近 31 天收录的漫剧作品与更新合集，按来源热度排序。</p>
+          </div>
+          <button id="hot-refresh" type="button">刷新榜单 <span aria-hidden="true">↻</span></button>
+        </div>
+        <p id="hot-status" role="status" aria-live="polite">正在更新热门内容…</p>
+        <div id="hot-results" class="hot-grid"></div>
+      </section>
+
+      <section class="search-panel" aria-label="搜索条件">
+        <form id="search-form">
+          <label class="field-label" for="keyword">搜索关键词 <span>KEYWORD</span></label>
+          <div class="search-row">
+            <div class="search-input-wrap">
+              <span class="search-icon" aria-hidden="true"></span>
+              <input id="keyword" name="keyword" type="search" maxlength="60" autocomplete="off" placeholder="输入漫剧名称、题材或制作资料关键词" required>
+              <kbd>↵</kbd>
+            </div>
+            <button class="search-button" type="submit"><span>开始搜索</span><span aria-hidden="true">↗</span></button>
+          </div>
+          <div class="filters">
+            <div class="filter-group" aria-label="资源类型">
+              <span class="filter-title">查找</span>
+              <label class="filter-chip"><input type="radio" name="kind" value="works" checked><span>作品剧集</span></label>
+              <label class="filter-chip"><input type="radio" name="kind" value="making"><span>教程素材</span></label>
+              <label class="filter-chip"><input type="radio" name="kind" value="all"><span>全部</span></label>
+            </div>
+            <label class="freshness-label" for="freshness">时间范围
+              <select id="freshness" name="freshness">
+                <option value="all">不限时间</option>
+                <option value="pd">最近 24 小时</option>
+                <option value="pw">最近 7 天</option>
+                <option value="pm">最近 31 天</option>
+              </select>
+            </label>
+          </div>
+        </form>
+        <div class="quick-search">
+          <span>试试搜索</span>
+          <button type="button" data-example="AI漫剧">AI漫剧</button>
+          <button type="button" data-example="永夜之王">永夜之王</button>
+          <button type="button" data-example="AI漫剧" data-kind="making">制作教程</button>
+        </div>
+      </section>
+
+      <section id="baidu-login-section" class="drive-section baidu-drive-section" aria-labelledby="baidu-drive-title">
+        <div class="drive-copy">
+          <p class="section-kicker">SAVE / 百度网盘</p>
+          <h2 id="baidu-drive-title">授权后，一键转存百度分享</h2>
+          <p>点击获取百度官方授权链接，在打开的页面登录自己的账号，再把页面显示的授权码填回这里。百度分享将保存到“我的应用数据 / bdpan / AI漫剧”。</p>
+          <p class="drive-privacy">授权由百度官方工具完成，不在这里输入网盘密码。请只在自己的电脑授权并妥善保管授权码；点击获取链接即接受百度工具的安全提示。百度工具只能写入其应用数据目录。</p>
+        </div>
+        <div class="drive-action">
+          <div class="drive-state"><span id="baidu-state-dot" class="drive-state-dot"></span><strong id="baidu-auth-label">检查百度登录状态…</strong></div>
+          <button id="baidu-auth-button" class="drive-primary-button" type="button">同意并获取百度授权链接 <span aria-hidden="true">↗</span></button>
+          <a id="baidu-auth-link" class="baidu-auth-link" target="_blank" rel="noopener noreferrer" hidden>打开百度官方授权页面 ↗</a>
+          <form id="baidu-code-form" class="baidu-code-form" hidden>
+            <label for="baidu-code">授权页面显示的授权码</label>
+            <div><input id="baidu-code" type="text" autocomplete="off" maxlength="512" placeholder="粘贴授权码" required><button type="submit">完成授权</button></div>
+          </form>
+          <p id="baidu-auth-message" role="status" aria-live="polite">首次使用请先安装百度转存组件。</p>
+        </div>
+      </section>
+
+      <section id="quark-login-section" class="drive-section" aria-labelledby="drive-title">
+        <div class="drive-copy">
+          <p class="section-kicker">SAVE / 夸克网盘</p>
+          <h2 id="drive-title">扫码后，一键转存</h2>
+          <p>用夸克 App 扫码登录本机工具。搜索结果中的夸克分享可直接保存到您网盘的“AI漫剧”文件夹。</p>
+          <p class="drive-privacy">登录凭据保存在这台电脑的本地目录。发行包内含第三方 QuarkPan 组件，依赖夸克的非公开接口，平台更新后可能失效。</p>
+        </div>
+        <div class="drive-action">
+          <div class="drive-state"><span class="drive-state-dot"></span><strong id="quark-auth-label">检查夸克登录状态…</strong></div>
+          <button id="quark-login-button" type="button">扫码登录夸克网盘 <span aria-hidden="true">↗</span></button>
+          <div id="quark-qr-wrap" class="qr-wrap" hidden>
+            <img id="quark-qr" alt="使用夸克 App 扫描此二维码登录">
+            <p>请用夸克 App 扫码，二维码约 5 分钟后过期。</p>
+          </div>
+          <p id="quark-auth-message" role="status" aria-live="polite">无需输入网盘密码。</p>
+        </div>
+      </section>
+
+      <section class="results-section" aria-labelledby="results-title">
+        <div class="section-heading">
+          <div>
+            <p class="section-kicker">DISCOVERY / 双平台检索</p>
+            <h2 id="results-title">搜索结果</h2>
+          </div>
+          <p id="search-status" role="status" aria-live="polite">输入关键词后开始搜索</p>
+        </div>
+        <div id="mode-note" class="mode-note" hidden></div>
+        <div class="results-grid">
+          <section class="platform-column" aria-labelledby="baidu-title">
+            <div class="platform-heading">
+              <span class="platform-number">01</span>
+              <div><p>BAIDU NETDISK</p><h3 id="baidu-title">百度网盘 <span id="baidu-count" class="result-count">0</span></h3></div>
+              <a id="baidu-external" class="external-search" href="#" target="_blank" rel="noopener noreferrer" hidden>网页搜索 ↗</a>
+            </div>
+            <div id="baidu-results" class="result-list"><div class="empty-state"><span class="empty-symbol">⌕</span><strong>等待搜索</strong><p>百度网盘的公开分享线索会显示在这里。</p></div></div>
+          </section>
+          <section class="platform-column" aria-labelledby="quark-title">
+            <div class="platform-heading">
+              <span class="platform-number">02</span>
+              <div><p>QUARK DRIVE</p><h3 id="quark-title">夸克网盘 <span id="quark-count" class="result-count">0</span></h3></div>
+              <a id="quark-external" class="external-search" href="#" target="_blank" rel="noopener noreferrer" hidden>网页搜索 ↗</a>
+            </div>
+            <div id="quark-results" class="result-list"><div class="empty-state"><span class="empty-symbol">⌕</span><strong>等待搜索</strong><p>夸克网盘的公开分享线索会显示在这里。</p></div></div>
+          </section>
+        </div>
+      </section>
+
+      <section class="settings-section" aria-labelledby="settings-title">
+        <div><p class="section-kicker">SETUP / 可选设置</p><h2 id="settings-title">扩展公开网页搜索</h2><p>默认显示公开网盘索引结果。填入 Brave Search API 密钥后，索引没有结果时会补充查找公开网页。密钥仅保存在本机。</p></div>
+        <details id="settings-details">
+          <summary>设置搜索密钥 <span aria-hidden="true">↗</span></summary>
+          <form id="settings-form">
+            <label for="api-key">Brave Search API 密钥</label>
+            <div class="settings-row"><input id="api-key" name="api-key" type="password" autocomplete="off" placeholder="粘贴密钥"><button type="submit">保存密钥</button></div>
+            <p id="settings-status" role="status" aria-live="polite">获取密钥：<a href="https://brave.com/search/api/" target="_blank" rel="noopener noreferrer">Brave Search API ↗</a></p>
+          </form>
+        </details>
+      </section>
+    </main>
+
+    <footer><span>漫剧雷达 / 本机搜索工具</span><p>结果来自公开索引；搜索时间不代表网盘链接仍然有效。请确认资源来源和使用授权。</p><a href="https://www.pansousuo.com/api-docs" target="_blank" rel="noopener noreferrer">公开索引：盘搜索 ↗</a></footer>
+  </div>
+</body>
+</html>
